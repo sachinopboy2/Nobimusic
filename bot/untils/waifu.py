@@ -7,11 +7,7 @@ here touches any other command, table, cache or handler.
 Persistence mirrors the project's standard pattern (see bot.utils.chats):
 - in-memory dict serves all reads,
 - an atomic local JSON file survives restarts,
-- kvstore (Redis) write-through survives Railway redeploys; Redis is
-  authoritative on load and a pre-existing local file is migrated in once.
-
-A user's waifu profile is generated once and frozen for exactly 24h (elapsed
-time, not calendar day). See is_active / assignment logic in the plugin.
+- MongoDB (primary) survives redeploys; JSON is fallback.
 """
 
 import html
@@ -21,8 +17,8 @@ import random
 import time
 from threading import Lock
 
+from bot.utils import db
 from bot.utils import emoji as e
-from bot.utils import kvstore
 
 BOND_SECONDS = 86_400  # 24h, strictly elapsed time
 WAIFU_FILE = os.getenv("WAIFU_FILE", "waifu.json")
@@ -37,7 +33,6 @@ def fallback_image() -> str:
     """A premium default image for when the profile photo is unavailable — the
     operator override if set, else a randomly chosen bundled fallback."""
     return os.getenv("WAIFU_FALLBACK_IMAGE") or random.choice(_FALLBACK_IMAGES)
-_KV = "waifu"
 
 # Optional card heading. Empty by default (no brand line). Set WAIFU_BRAND to
 # add your own title, e.g. "🌸 My Music Bot".
@@ -77,6 +72,7 @@ def _load() -> None:
     global _loaded
     if _loaded:
         return
+
     local: dict[str, dict] = {}
     if os.path.exists(WAIFU_FILE):
         try:
@@ -88,16 +84,33 @@ def _load() -> None:
             pass
     _profiles.update(local)
 
-    if kvstore.enabled():
-        remote = kvstore.load(_KV)
-        if isinstance(remote, dict):
-            _profiles.update(remote)  # Redis authoritative
-        if _profiles and (not isinstance(remote, dict) or len(remote) < len(_profiles)):
-            kvstore.save(_KV, _profiles)  # migrate local into Redis once
+    # 1. MongoDB (primary — persistent)
+    if db.ready():
+        if not _loaded:
+            try:
+                remote = db.load_waifus()
+                if isinstance(remote, dict):
+                    _profiles.update(remote)  # Mongo authoritative
+                if _profiles and (not isinstance(remote, dict) or len(remote) < len(_profiles)):
+                    db.save_waifus(_profiles)  # migrate local into Mongo once
+                _loaded = True
+            except Exception:
+                pass
+        if _loaded:
+            return
+
     _loaded = True
 
 
 def _save() -> None:
+    # 1. MongoDB (primary)
+    if db.ready():
+        try:
+            db.save_waifus(_profiles)
+        except Exception:
+            pass
+
+    # 2. Local JSON backup
     tmp = WAIFU_FILE + ".tmp"
     try:
         with open(tmp, "w") as f:
@@ -105,7 +118,6 @@ def _save() -> None:
         os.replace(tmp, WAIFU_FILE)
     except OSError:
         pass
-    kvstore.save(_KV, _profiles)
 
 
 def _key(user_id: int, chat_id: int) -> str:
@@ -179,35 +191,35 @@ def _layouts(user: str, username: str | None, bond: int, chemistry: str,
         1: (
             "╭───────────── ♡ ─────────────╮\n"
             f"{brand}"
-            "      ✨ Today's Waifu ✨\n"
+            f"      {e.SPARKLE} Today's Waifu {e.SPARKLE}\n"
             f"{e.USER} {user}{uname}\n"
             "━━━━━━━━━━━━━━━━━━━━\n"
-            f"💕 Bond  {bar8} {bond}%\n"
-            f"🍀 Chemistry  {chemistry}\n"
-            f"💍 Status  {relationship}\n"
-            f'💌 "{quote}"\n'
+            f"{e.HEART} Bond  {bar8} {bond}%\n"
+            f"{e.DICE} Chemistry  {chemistry}\n"
+            f"{e.CROWN} Status  {relationship}\n"
+            f'{e.CHAT} "{quote}"\n'
             "╰─────────────────────────────╯"
         ),
         2: (
             "┌──────────────────────────┐\n"
             f"{brand}"
-            "     💖 Today's Waifu\n"
+            f"     {e.HEART} Today's Waifu\n"
             f"{e.USER} {user}\n"
-            f"❤️ Bond  {bond}%\n"
-            f"✨ Chemistry  {chemistry}\n"
-            f"💍 Status  {relationship}\n"
+            f"{e.HEART} Bond  {bond}%\n"
+            f"{e.SPARKLE} Chemistry  {chemistry}\n"
+            f"{e.CROWN} Status  {relationship}\n"
             f'"{quote}"\n'
             "└──────────────────────────┘"
         ),
         3: (
             "━━━━━━━━━━━━━━━━━━━━\n"
             f"{brand}"
-            "✨ Today's Waifu ✨\n"
+            f"{e.SPARKLE} Today's Waifu {e.SPARKLE}\n"
             f"{e.USER} {user}\n"
-            f"♡ Bond  {bar10} {bond}%\n"
-            f"✨ Chemistry  {chemistry}\n"
-            f"💍 Status  {relationship}\n"
-            f'💌 "{quote}"\n'
+            f"{e.HEART} Bond  {bar10} {bond}%\n"
+            f"{e.SPARKLE} Chemistry  {chemistry}\n"
+            f"{e.CROWN} Status  {relationship}\n"
+            f'{e.CHAT} "{quote}"\n'
             "━━━━━━━━━━━━━━━━━━━━"
         ),
         4: (
@@ -216,52 +228,52 @@ def _layouts(user: str, username: str | None, bond: int, chemistry: str,
             "      Today's Waifu\n"
             "╰──────────────────────╯\n"
             f"{e.USER} {user}\n"
-            f"❤️ Bond  {bond}%\n"
-            f"✨ Affection  {chemistry}\n"
-            f"💍 Destiny  {relationship}\n"
-            f'💌 "{quote}"'
+            f"{e.HEART} Bond  {bond}%\n"
+            f"{e.SPARKLE} Affection  {chemistry}\n"
+            f"{e.CROWN} Destiny  {relationship}\n"
+            f'{e.CHAT} "{quote}"'
         ),
         5: (
             "╔══════════════════════╗\n"
             f"{brand}"
-            "💖 Today's Waifu\n"
+            f"{e.HEART} Today's Waifu\n"
             f"{e.USER} {user}{uname}\n"
             "━━━━━━━━━━━━━━\n"
-            f"❤️ Bond  {bond}%\n"
-            f"🌸 Match  {chemistry}\n"
-            f"💍 {relationship}\n"
-            f'💌 "{quote}"\n'
+            f"{e.HEART} Bond  {bond}%\n"
+            f"{e.ROSE1} Match  {chemistry}\n"
+            f"{e.CROWN} {relationship}\n"
+            f'{e.CHAT} "{quote}"\n'
             "╚══════════════════════╝"
         ),
         6: (
             "╭────────────────────────╮\n"
             f"{brand}"
-            "♡ WAIFU MATCH ♡\n"
+            f"{e.HEART} WAIFU MATCH {e.HEART}\n"
             f"{e.USER} {user}\n"
-            f"❤️ Compatibility  {bar10} {bond}%\n"
-            f"✨ Relationship  {relationship}\n"
-            f"💕 Chemistry  {chemistry}\n"
-            f'💌 "{quote}"\n'
+            f"{e.HEART} Compatibility  {bar10} {bond}%\n"
+            f"{e.SPARKLE} Relationship  {relationship}\n"
+            f"{e.DICE} Chemistry  {chemistry}\n"
+            f'{e.CHAT} "{quote}"\n'
             "╰────────────────────────╯"
         ),
         7: (
             "┏━━━━━━━━━━━━━━━━━━━━┓\n"
             f"{brand}"
-            "✨ Today's Waifu ✨\n"
+            f"{e.SPARKLE} Today's Waifu {e.SPARKLE}\n"
             f"{e.USER} {user}\n"
-            f"💕 Bond  {bond}%\n"
-            f"🍀 Chemistry  {chemistry}\n"
-            f"💍 Status  {relationship}\n"
+            f"{e.HEART} Bond  {bond}%\n"
+            f"{e.DICE} Chemistry  {chemistry}\n"
+            f"{e.CROWN} Status  {relationship}\n"
             f'{e.CHAT} "{quote}"\n'
             "┗━━━━━━━━━━━━━━━━━━━━┛"
         ),
         8: (
-            "╭────── 🌸 ──────╮\n"
+            f"╭────── {e.ROSE1} ──────╮\n"
             "   Today's Waifu\n"
             f"{e.USER} {user}\n"
-            f"❤️ {bond}%  ✨ {chemistry}\n"
-            f"💍 {relationship}\n"
-            f'💌 "{quote}"\n'
+            f"{e.HEART} {bond}%  {e.SPARKLE} {chemistry}\n"
+            f"{e.CROWN} {relationship}\n"
+            f'{e.CHAT} "{quote}"\n'
             "╰────────────────╯"
         ),
     }
@@ -289,7 +301,7 @@ def owner_header(mention: str) -> str:
 def footer_new() -> str:
     return (
         "\n━━━━━━━━━━━━━━\n"
-        "✨ Fate has made today's choice.\n"
-        "May this bond bring a little luck and a lot of smiles. 💕\n"
+        f"{e.SPARKLE} Fate has made today's choice.\n"
+        f"May this bond bring a little luck and a lot of smiles. {e.HEART}\n"
         "━━━━━━━━━━━━━━"
     )
