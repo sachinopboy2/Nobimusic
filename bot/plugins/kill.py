@@ -7,16 +7,12 @@ Triggers:
   /kill <text_mention>   — Telegram text-mention entity
 
 Each invocation rolls a 50/50:
-  success → "💀 {attacker} killed {target}. Case closed. ..."   + success.mp4
-  failure → "{attacker} attempted to kill {target}. Better luck …" + fail.mp4
+  success → animated GIF + killer wins message
+  failure → still image  + failed attempt message
 
 GIFs are downloaded once and cached in /tmp so we don't re-fetch them
 each call. If the GIF can't be downloaded the bot still sends the
 text-only message (graceful degradation).
-
-The two custom-emoji ids are baked into the messages via pyrofork's
-<emoji id="..."> HTML tag; non-premium clients render the fallback
-glyph between the tags (💀 / ⚔️).
 """
 
 import asyncio
@@ -30,12 +26,11 @@ import aiohttp
 from pyrogram import Client, filters
 from pyrogram.enums import MessageEntityType, ParseMode
 
+from bot.utils import emoji as e
+
 logger = logging.getLogger("WarbornMusic.kill")
 
-# Operator-supplied media for the /kill outcome. Defaults are public
-# placeholders; override with KILL_SUCCESS_MEDIA / KILL_FAILURE_MEDIA in .env.
-#   Success → animated MP4 (sent as send_animation)
-#   Failure → still JPG     (sent as send_photo)
+# ── Media URLs ─────────────────────────────────────
 _SUCCESS_MEDIA_URL = os.getenv(
     "KILL_SUCCESS_MEDIA", "https://tmpfiles.org/wlws0Kf74MoM/kirby-meme.mp4"
 ).strip()
@@ -45,22 +40,15 @@ _FAILURE_MEDIA_URL = os.getenv(
 ).strip()
 _FAILURE_KIND = "photo"
 
-# Premium custom-emoji ids from the spec.
-_EMOJI_FAIL = "6181421239978956035"
-_EMOJI_KILL = "5352585602317426381"
-
 _HTTP_TIMEOUT = aiohttp.ClientTimeout(total=30)
 
-# Cache: source URL -> local path on disk.
+# Cache: source URL → local path on disk.
 _gif_cache: dict[str, str] = {}
 _cache_lock = asyncio.Lock()
 
 
+# ── Helpers ────────────────────────────────────────
 def _candidate_urls(url: str) -> list[str]:
-    """tmpfiles.org's share URL renders an HTML preview page; the actual
-    media is at /dl/<id>/<name>. Try the share URL first, then fall back
-    to the /dl/ form for tmpfiles links specifically.
-    """
     if not url:
         return []
     out = [url]
@@ -70,10 +58,6 @@ def _candidate_urls(url: str) -> list[str]:
 
 
 def _suffix_for(url: str) -> str:
-    """Best-effort suffix from the URL path. Used only for the temp
-    filename — the actual send method (animation vs photo) is decided
-    by _SUCCESS_KIND / _FAILURE_KIND.
-    """
     tail = url.rsplit("/", 1)[-1].lower()
     for ext in (".mp4", ".gif", ".webm", ".jpg", ".jpeg", ".png", ".webp"):
         if tail.endswith(ext):
@@ -82,7 +66,6 @@ def _suffix_for(url: str) -> str:
 
 
 async def _ensure_media(url: str) -> Optional[str]:
-    """Resolve a remote media URL to a local path. Returns None on failure."""
     if not url:
         return None
 
@@ -119,7 +102,6 @@ async def _ensure_media(url: str) -> Optional[str]:
 
 
 async def _resolve_target(client, message):
-    """Return (user, mention_html) for the /kill target, or (None, None)."""
     for ent in (message.entities or []):
         if ent.type == MessageEntityType.TEXT_MENTION and ent.user:
             return ent.user, ent.user.mention
@@ -156,6 +138,7 @@ def _attacker_mention(message) -> str:
     return user.mention or (user.first_name or str(user.id))
 
 
+# ── Command Handler ────────────────────────────────
 @Client.on_message(filters.command(["kill", "murder"]))
 async def kill_command(client, message):
     logger.info(
@@ -165,65 +148,66 @@ async def kill_command(client, message):
         bool(message.reply_to_message),
         message.command[1:] if message.command else [],
     )
+
     try:
         target, target_mention = await _resolve_target(client, message)
     except Exception:
         logger.exception("kill: _resolve_target raised")
-        await message.reply_text("🗡 Couldn't resolve the target — try a different form.")
+        await message.reply_text(
+            f"{e.WARNING} <b>Couldn't resolve the target</b> — try a different form.",
+            parse_mode=ParseMode.HTML,
+        )
         return
+
     logger.info("kill: target=%s mention=%r", target.id if target else None, target_mention)
+
     if target_mention is None:
         await message.reply_text(
-            "🗡 Usage:\n"
-            "• Reply to a user's message with `/kill`\n"
-            "• `/kill <user_id>`\n"
-            "• `/kill @username`"
+            f"{e.COMET} <b>Usage</b>\n\n"
+            f"{e.DART} Reply to a user's message with <code>/kill</code>\n"
+            f"{e.DART} <code>/kill &lt;user_id&gt;</code>\n"
+            f"{e.DART} <code>/kill @username</code>",
+            parse_mode=ParseMode.HTML,
         )
         return
 
     attacker_mention = _attacker_mention(message)
 
-    # Optional self-protection: the bot itself can never die.
+    # ── Self-protection: bot can't be killed ────────
     target_is_self = bool(target and target.is_self)
     if target_is_self:
         await message.reply_text(
-            f'<emoji id="{_EMOJI_FAIL}">⚔️</emoji> '
-            f"{attacker_mention} attempted to kill the bot. "
-            f"The attempt failed. The Shogun is eternal. ⚡",
+            f"{e.BOMB1} {attacker_mention} attempted to kill the bot.\n\n"
+            f"{e.CROWN} <b>The attempt failed. The Shogun is eternal.</b> {e.BOLT}",
             parse_mode=ParseMode.HTML,
         )
         return
 
-    # 50/50.
+    # ── 50/50 Roll ──────────────────────────────────
     success = random.random() < 0.5
     logger.info("kill: roll=%s", "SUCCESS" if success else "FAILURE")
 
     if success:
         text = (
-            f'<emoji id="{_EMOJI_KILL}">💀</emoji> '
-            f"{attacker_mention} killed {target_mention}.\n"
-            f"Case closed. No second chances."
+            f"{e.GHOST} <b>{attacker_mention} killed {target_mention}</b>\n\n"
+            f"{e.CHECK} Case closed. No second chances.\n"
+            f"{e.FIRE} <i>Rest in pieces...</i>"
         )
         media_path = await _ensure_media(_SUCCESS_MEDIA_URL)
         media_kind = _SUCCESS_KIND
     else:
         text = (
-            f'<emoji id="{_EMOJI_FAIL}">⚔️</emoji> '
-            f"{attacker_mention} attempted to kill {target_mention}.\n"
-            f"The attempt failed. Better luck in another timeline."
+            f"{e.BOMB1} <b>{attacker_mention} attempted to kill {target_mention}</b>\n\n"
+            f"{e.WARNING} <b>The attempt failed!</b>\n"
+            f"{e.CLOCK} <i>Better luck in another timeline...</i>"
         )
         media_path = await _ensure_media(_FAILURE_MEDIA_URL)
         media_kind = _FAILURE_KIND
 
-    # Prefer URL-based send: Telegram fetches the media server-side so we
-    # don't have to upload chunks via the bot's media DC (that path hangs
-    # for the bot client in this pyrofork+ntgcalls build — confirmed by
-    # log gaps with no completion or exception). If the URL send fails or
-    # times out, fall back to the local-file upload, then to text-only.
+    # ── Send Media ──────────────────────────────────
     success_url, success_kind = _SUCCESS_MEDIA_URL, _SUCCESS_KIND
     failure_url, failure_kind = _FAILURE_MEDIA_URL, _FAILURE_KIND
     chosen_url = success_url if success else failure_url
-    # tmpfiles.org needs /dl/ for direct media; ibb.co URLs are already direct.
     chosen_url = _candidate_urls(chosen_url)[-1]
 
     sent = False
@@ -251,11 +235,6 @@ async def kill_command(client, message):
                     parse_mode=ParseMode.HTML,
                     reply_to_message_id=message.id,
                 )
-            # Hard timeout: pyrofork's media-DC upload path has hung
-            # indefinitely on this bot in earlier runs, swallowing the
-            # caller. wait_for converts the hang into TimeoutError so we
-            # can fall through to the next attempt instead of leaking
-            # the handler task.
             await asyncio.wait_for(coro, timeout=25)
             sent = True
             logger.info("kill: media sent OK via %s", attempt)
@@ -267,6 +246,7 @@ async def kill_command(client, message):
     if sent:
         return
 
+    # ── Text-only fallback ──────────────────────────
     try:
         await message.reply_text(text, parse_mode=ParseMode.HTML)
         logger.info("kill: text-fallback sent OK")
