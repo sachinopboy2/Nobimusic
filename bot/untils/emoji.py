@@ -1,0 +1,30 @@
+"""Centralized premium custom-emoji IDs/snippets for Warborn Music."""
+import html as _html
+
+def _e(eid: str, glyph: str) -> str:
+    return f'<emoji id="{eid}">{glyph}</emoji>'
+
+def mention(user) -> str:
+    if user is None:
+        return "someone"
+    name = _html.escape(getattr(user, "first_name", None) or "user")
+    return f'<a href="tg://user?id={user.id}">{name}</a>'
+
+NOTE_ID="5994721794760642534"; MUSIC_ID="5334653529741076580"
+HEAD_ID="5886268068035827289"; BOLT_ID="6170427231802757303"
+FIRE_ID="5346334981792734939"; BRAIN_ID="5278628322769654561"
+PEOPLE_ID="5861955787181525936"; USER_ID="5226810560250676186"
+SHIELD_ID="4958900559139570572"; CROWN_ID="6231116549919349944"
+WAVE_ID="5816875690183631180"; GEAR_ID="5341715473882955310"
+IDCARD_ID="5350427505805238170"; DICE_ID="5972061723400605896"
+SPARKLE_ID="5271810272640643747"; WAND_ID="5269617691836058799"
+CHAT_ID="5443038326535759644"; PLUS_ID="5030749344752468962"
+MEGA_ID="4967957395331351254"; BOOK_ID="5033104253846029290"
+
+NOTE=_e(NOTE_ID,"🎵"); MUSIC=_e(MUSIC_ID,"🎶"); HEAD=_e(HEAD_ID,"🎧")
+BOLT=_e(BOLT_ID,"⚡"); FIRE=_e(FIRE_ID,"🔥"); BRAIN=_e(BRAIN_ID,"🧠")
+PEOPLE=_e(PEOPLE_ID,"👥"); USER=_e(USER_ID,"👤"); SHIELD=_e(SHIELD_ID,"🛡")
+CROWN=_e(CROWN_ID,"👑"); WAVE=_e(WAVE_ID,"👋"); GEAR=_e(GEAR_ID,"⚙️")
+IDCARD=_e(IDCARD_ID,"🆔"); DICE=_e(DICE_ID,"🎲"); SPARKLE=_e(SPARKLE_ID,"🔮")
+WAND=_e(WAND_ID,"🪄"); CHAT=_e(CHAT_ID,"💬"); PLUS=_e(PLUS_ID,"➕")
+MEGA=_e(MEGA_ID,"📢"); BOOK=_e(BOOK_ID,"📚")
