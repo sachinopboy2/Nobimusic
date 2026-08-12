@@ -221,8 +221,8 @@ def normalize_link(value: str) -> str:
 # Banner images for /start and /help. Third-party (i.ibb.co) placeholders;
 # override with your own image URLs.
 START_IMAGE = os.getenv(
-    "START_IMAGE", "https://i.ibb.co/YF6mgfVx/f1fa18a00964.jpg"
+    "START_IMAGE", "https://files.catbox.moe/eahc05.jpg"
 ).strip()
 HELP_IMAGE = os.getenv(
-    "HELP_IMAGE", "https://i.ibb.co/0yjy0Cj0/0ad5a76f9731.jpg"
+    "HELP_IMAGE", "https://files.catbox.moe/eahc05.jpg"
 ).strip()
