@@ -19,3 +19,4 @@ cryptography>=44.0.0
 # settings, sudo/blacklist/gban, log-channel) when REDIS_URL is set — survives
 # Railway redeploys. Falls back to local JSON when unset/unreachable.
 redis==5.2.1
+motor
