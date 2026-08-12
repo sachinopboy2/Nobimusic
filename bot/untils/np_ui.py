@@ -68,10 +68,10 @@ def render_for_chat(chat_id: int, track, duration=None) -> str:
 def nowplaying_keyboard(styled: bool = True) -> InlineKeyboardMarkup:
     """Inline controls under the Now Playing message.
 
-    Layout:
-      Prev   Play/Pause   Next
-      Shuffle   Loop   Stop
-      Skip
+    Layout (3+3+2 buttons — compact & balanced):
+      [Prev] [Play] [Next]
+      [Shuffle] [Loop] [Stop]
+      [Skip] [Menu]
 
     `styled=True` (default) uses the 2026 coloured ButtonStyle + premium
     custom-emoji icons. If a client/bot can't render those and the send
@@ -83,7 +83,7 @@ def nowplaying_keyboard(styled: bool = True) -> InlineKeyboardMarkup:
             [
                 [
                     InlineKeyboardButton("Prev", callback_data="mp:prev"),
-                    InlineKeyboardButton("Play/Pause", callback_data="mp:toggle"),
+                    InlineKeyboardButton("Play", callback_data="mp:toggle"),
                     InlineKeyboardButton("Next", callback_data="mp:next"),
                 ],
                 [
@@ -93,6 +93,7 @@ def nowplaying_keyboard(styled: bool = True) -> InlineKeyboardMarkup:
                 ],
                 [
                     InlineKeyboardButton("Skip", callback_data="mp:skip"),
+                    InlineKeyboardButton("Menu", callback_data="mp:menu"),
                 ],
             ]
         )
@@ -103,7 +104,7 @@ def nowplaying_keyboard(styled: bool = True) -> InlineKeyboardMarkup:
                 InlineKeyboardButton("Prev", callback_data="mp:prev",
                                      icon_custom_emoji_id=e.NOTE_ID,
                                      style=ButtonStyle.PRIMARY),
-                InlineKeyboardButton("Play/Pause", callback_data="mp:toggle",
+                InlineKeyboardButton("Play", callback_data="mp:toggle",
                                      icon_custom_emoji_id=e.MUSIC_ID,
                                      style=ButtonStyle.SUCCESS),
                 InlineKeyboardButton("Next", callback_data="mp:next",
@@ -125,6 +126,9 @@ def nowplaying_keyboard(styled: bool = True) -> InlineKeyboardMarkup:
                 InlineKeyboardButton("Skip", callback_data="mp:skip",
                                      icon_custom_emoji_id=e.BOLT2_ID,
                                      style=ButtonStyle.DANGER),
+                InlineKeyboardButton("Menu", callback_data="mp:menu",
+                                     icon_custom_emoji_id=e.KNOB_ID,
+                                     style=ButtonStyle.DEFAULT),
             ],
         ]
     )
@@ -154,23 +158,23 @@ def render_queue_added(title, artist, duration, position: int, eta: str,
 
 
 def queue_added_keyboard(position: int, styled: bool = True) -> InlineKeyboardMarkup:
-    """[Skip] [Change Song] [Queue] for the queue-added card.
+    """[Skip] [Change] [Queue] for the queue-added card.
 
-    Skip reuses the existing mp:skip control; Change Song carries this track's
+    Skip reuses the existing mp:skip control; Change carries this track's
     queue position; Queue opens a compact queue popup. styled=True uses the
     2026 coloured ButtonStyle; the caller retries styled=False if a send is
     rejected so the controls never disappear."""
     if not styled:
         return InlineKeyboardMarkup([
             [InlineKeyboardButton("Skip", callback_data="mp:skip")],
-            [InlineKeyboardButton("Change Song", callback_data=f"mp:chgsong:{position}")],
+            [InlineKeyboardButton("Change", callback_data=f"mp:chgsong:{position}")],
             [InlineKeyboardButton("Queue", callback_data="mp:queue")],
         ])
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("Skip", callback_data="mp:skip",
                               icon_custom_emoji_id=e.BOLT2_ID,
                               style=ButtonStyle.DANGER)],
-        [InlineKeyboardButton("Change Song", callback_data=f"mp:chgsong:{position}",
+        [InlineKeyboardButton("Change", callback_data=f"mp:chgsong:{position}",
                               icon_custom_emoji_id=e.DICE_ID,
                               style=ButtonStyle.PRIMARY)],
         [InlineKeyboardButton("Queue", callback_data=f"mp:queue",
