@@ -27,12 +27,12 @@ async def greetings_command(client, message):
 
     if not await _is_admin(client, message.chat.id, message.from_user.id):
         await message.reply_text(
-            "🔒 <b>Admins only</b>\n"
+            f"{e.BLOCK} <b>Admins only</b>\n"
             "<i>Only group admins can toggle greetings.</i>", parse_mode=_HTML)
         return
 
     if len(message.command) < 2:
-        state = "ON ✅" if is_enabled(message.chat.id) else "OFF ❌"
+        state = f"{e.CHECK} ON" if is_enabled(message.chat.id) else f"{e.NO_ENTRY} OFF"
         await message.reply_text(
             f"{e.WAVE} <b>Greetings:</b> {state}\n"
             "<i>Use</i> <code>/greetings on</code> <i>or</i> <code>/greetings off</code>.",
@@ -43,12 +43,12 @@ async def greetings_command(client, message):
     if arg in ("on", "enable", "enabled", "yes", "true"):
         set_enabled(message.chat.id, True)
         await message.reply_text(
-            f"✅ {e.WAVE} <b>Greetings ON</b>\n"
+            f"{e.CHECK} {e.WAVE} <b>Greetings ON</b>\n"
             "<i>New members will be welcomed.</i>", parse_mode=_HTML)
     elif arg in ("off", "disable", "disabled", "no", "false"):
         set_enabled(message.chat.id, False)
         await message.reply_text(
-            f"❌ {e.WAVE} <b>Greetings OFF</b>\n"
+            f"{e.NO_ENTRY} {e.WAVE} <b>Greetings OFF</b>\n"
             "<i>New members won't be welcomed.</i>", parse_mode=_HTML)
     else:
         await message.reply_text(
