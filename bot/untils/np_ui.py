@@ -21,13 +21,6 @@ from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from bot.utils import emoji as e
 from bot.utils import queue as q
 
-# Custom emoji IDs taken from the spec.
-_EMOJI_PLAY = "4956442665320186933"
-_EMOJI_VOL = "5253809111220364948"
-_EMOJI_REQ = "5818715087237549366"
-_EMOJI_REPEAT = "5249019346512008974"
-_EMOJI_HEAD = "5886268068035827289"  # 🎧, verified renderable for this bot
-
 # Static 14-cell progress bar — "▰▰▰▰▱▱▱▱▱▱▱▱▱▱". Sender sees a fresh
 # render, so we always start the indicator near the head of the track.
 _PROGRESS_BAR = "▰▰▰▰▱▱▱▱▱▱▱▱▱▱"
@@ -51,11 +44,11 @@ def _card(track, repeat: str, duration=None, title: str = None) -> str:
     requester = html.escape((track.requested_by or "someone").strip())
     end = _fmt_dur(duration if duration is not None else getattr(track, "duration", None))
     return (
-        f'<emoji id="{_EMOJI_HEAD}">🎧</emoji> <b>Now Playing</b>\n'
+        f"{e.HEAD} <b>Now Playing</b>\n"
         f"<b>{title}</b>\n"
         f"<code>{_PROGRESS_BAR}  0:00 / {end}</code>\n"
-        f'<emoji id="{_EMOJI_REQ}">👤</emoji> {requester}   '
-        f'<emoji id="{_EMOJI_REPEAT}">🔁</emoji> {repeat}'
+        f"{e.USER} {requester}   "
+        f"{e.CHECK} {repeat}"
     )
 
 
@@ -76,9 +69,9 @@ def nowplaying_keyboard(styled: bool = True) -> InlineKeyboardMarkup:
     """Inline controls under the Now Playing message.
 
     Layout:
-      ⏮ Prev   ⏯ Pause/Resume   ⏭ Next
-      🔀 Shuffle   🔁 Loop   ⏹ Stop
-      ⏭ Skip
+      Prev   Play/Pause   Next
+      Shuffle   Loop   Stop
+      Skip
 
     `styled=True` (default) uses the 2026 coloured ButtonStyle + premium
     custom-emoji icons. If a client/bot can't render those and the send
@@ -89,42 +82,49 @@ def nowplaying_keyboard(styled: bool = True) -> InlineKeyboardMarkup:
         return InlineKeyboardMarkup(
             [
                 [
-                    InlineKeyboardButton("⏮", callback_data="mp:prev"),
-                    InlineKeyboardButton("⏯", callback_data="mp:toggle"),
-                    InlineKeyboardButton("⏭", callback_data="mp:next"),
+                    InlineKeyboardButton("Prev", callback_data="mp:prev"),
+                    InlineKeyboardButton("Play/Pause", callback_data="mp:toggle"),
+                    InlineKeyboardButton("Next", callback_data="mp:next"),
                 ],
                 [
-                    InlineKeyboardButton("🔀 Shuffle", callback_data="mp:shuffle"),
-                    InlineKeyboardButton("🔁 Loop", callback_data="mp:loop"),
-                    InlineKeyboardButton("⏹ Stop", callback_data="mp:stop"),
+                    InlineKeyboardButton("Shuffle", callback_data="mp:shuffle"),
+                    InlineKeyboardButton("Loop", callback_data="mp:loop"),
+                    InlineKeyboardButton("Stop", callback_data="mp:stop"),
                 ],
-                [InlineKeyboardButton("⏭ Skip", callback_data="mp:skip")],
+                [
+                    InlineKeyboardButton("Skip", callback_data="mp:skip"),
+                ],
             ]
         )
 
     return InlineKeyboardMarkup(
         [
             [
-                InlineKeyboardButton("⏮ Prev", callback_data="mp:prev",
-                                     style=ButtonStyle.DEFAULT),
-                InlineKeyboardButton("⏯ Play", callback_data="mp:toggle",
-                                     icon_custom_emoji_id=_EMOJI_PLAY,
+                InlineKeyboardButton("Prev", callback_data="mp:prev",
+                                     icon_custom_emoji_id=e.NOTE_ID,
                                      style=ButtonStyle.PRIMARY),
-                InlineKeyboardButton("Next ⏭", callback_data="mp:next",
-                                     style=ButtonStyle.DEFAULT),
+                InlineKeyboardButton("Play/Pause", callback_data="mp:toggle",
+                                     icon_custom_emoji_id=e.MUSIC_ID,
+                                     style=ButtonStyle.SUCCESS),
+                InlineKeyboardButton("Next", callback_data="mp:next",
+                                     icon_custom_emoji_id=e.BOLT_ID,
+                                     style=ButtonStyle.PRIMARY),
             ],
             [
-                InlineKeyboardButton("🔀 Shuffle", callback_data="mp:shuffle",
+                InlineKeyboardButton("Shuffle", callback_data="mp:shuffle",
+                                     icon_custom_emoji_id=e.DICE_ID,
                                      style=ButtonStyle.PRIMARY),
                 InlineKeyboardButton("Loop", callback_data="mp:loop",
-                                     icon_custom_emoji_id=_EMOJI_REPEAT,
+                                     icon_custom_emoji_id=e.CHECK_ID,
                                      style=ButtonStyle.SUCCESS),
-                InlineKeyboardButton("⏹ Stop", callback_data="mp:stop",
+                InlineKeyboardButton("Stop", callback_data="mp:stop",
+                                     icon_custom_emoji_id=e.NO_ENTRY_ID,
                                      style=ButtonStyle.DANGER),
             ],
             [
-                InlineKeyboardButton("⏭ Skip", callback_data="mp:skip",
-                                     style=ButtonStyle.PRIMARY),
+                InlineKeyboardButton("Skip", callback_data="mp:skip",
+                                     icon_custom_emoji_id=e.BOLT2_ID,
+                                     style=ButtonStyle.DANGER),
             ],
         ]
     )
@@ -133,9 +133,8 @@ def nowplaying_keyboard(styled: bool = True) -> InlineKeyboardMarkup:
 def render_queue_added(title, artist, duration, position: int, eta: str,
                        requested_by) -> str:
     """Caption for the 'Added to Queue' card. Premium custom emoji (verified
-    IDs only, via bot.utils.emoji) with unicode fallbacks; ⏱/📍/⏳ stay plain
-    unicode because no verified custom-emoji id exists for them and an unknown
-    id makes Telegram reject the whole message. All dynamic values escaped."""
+    IDs only, via bot.utils.emoji) with unicode fallbacks. All dynamic values
+    escaped."""
     lines = [
         f"{e.NOTE} <b>Added to Queue</b>",
         "",
@@ -143,11 +142,11 @@ def render_queue_added(title, artist, duration, position: int, eta: str,
     ]
     if artist:
         lines.append(f"{e.USER} {html.escape(artist.strip())}")
-    lines.append(f"⏱️ {_fmt_dur(duration)}")
+    lines.append(f"{e.CLOCK} {_fmt_dur(duration)}")
     lines += [
         "",
-        f"📍 <b>Position:</b> #{position}",
-        f"⏳ Plays in {html.escape(eta)}",
+        f"{e.PIN} <b>Position:</b> #{position}",
+        f"{e.CLOCK} Plays in {html.escape(eta)}",
         "",
         f"Requested by {html.escape(str(requested_by or 'someone'))}",
     ]
@@ -155,7 +154,7 @@ def render_queue_added(title, artist, duration, position: int, eta: str,
 
 
 def queue_added_keyboard(position: int, styled: bool = True) -> InlineKeyboardMarkup:
-    """[⏭ Skip] [🔄 Change Song] [📜 Queue] for the queue-added card.
+    """[Skip] [Change Song] [Queue] for the queue-added card.
 
     Skip reuses the existing mp:skip control; Change Song carries this track's
     queue position; Queue opens a compact queue popup. styled=True uses the
@@ -163,15 +162,18 @@ def queue_added_keyboard(position: int, styled: bool = True) -> InlineKeyboardMa
     rejected so the controls never disappear."""
     if not styled:
         return InlineKeyboardMarkup([
-            [InlineKeyboardButton("⏭ Skip", callback_data="mp:skip")],
-            [InlineKeyboardButton("🔄 Change Song", callback_data=f"mp:chgsong:{position}")],
-            [InlineKeyboardButton("📜 Queue", callback_data="mp:queue")],
+            [InlineKeyboardButton("Skip", callback_data="mp:skip")],
+            [InlineKeyboardButton("Change Song", callback_data=f"mp:chgsong:{position}")],
+            [InlineKeyboardButton("Queue", callback_data="mp:queue")],
         ])
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("⏭ Skip", callback_data="mp:skip",
+        [InlineKeyboardButton("Skip", callback_data="mp:skip",
+                              icon_custom_emoji_id=e.BOLT2_ID,
+                              style=ButtonStyle.DANGER)],
+        [InlineKeyboardButton("Change Song", callback_data=f"mp:chgsong:{position}",
+                              icon_custom_emoji_id=e.DICE_ID,
                               style=ButtonStyle.PRIMARY)],
-        [InlineKeyboardButton("🔄 Change Song", callback_data=f"mp:chgsong:{position}",
+        [InlineKeyboardButton("Queue", callback_data=f"mp:queue",
+                              icon_custom_emoji_id=e.INBOX_ID,
                               style=ButtonStyle.SUCCESS)],
-        [InlineKeyboardButton("📜 Queue", callback_data="mp:queue",
-                              style=ButtonStyle.DEFAULT)],
     ])
