@@ -1,17 +1,15 @@
 """Per-chat on/off flag for the welcome handler.
 
-Stored as a JSON list of chat ids in GREETINGS_FILE (default: ./greetings.json).
-A chat in the set means "greetings are ON". Default for any new chat is OFF.
+Stored in MongoDB (persistent) + local JSON fallback.
 """
 
 import json
 import os
 from threading import Lock
 
-from bot.utils import kvstore
+from bot.utils import db
 
 GREETINGS_FILE = os.getenv("GREETINGS_FILE", "greetings.json")
-_KV = "greetings"
 
 _lock = Lock()
 _loaded = False
@@ -22,6 +20,19 @@ def _load() -> None:
     global _loaded
     if _loaded:
         return
+
+    # 1. MongoDB (primary — persistent)
+    if db.ready():
+        try:
+            remote = db.load_greetings()
+            if isinstance(remote, list):
+                _enabled.update(int(x) for x in remote)
+                _loaded = True
+                return
+        except Exception:
+            pass
+
+    # 2. Local JSON fallback
     if os.path.exists(GREETINGS_FILE):
         try:
             with open(GREETINGS_FILE) as f:
@@ -30,16 +41,19 @@ def _load() -> None:
                 _enabled.update(int(x) for x in data)
         except (OSError, ValueError, TypeError):
             pass
-    if kvstore.enabled():
-        remote = kvstore.load(_KV)
-        if isinstance(remote, list):
-            _enabled.update(int(x) for x in remote)
-        if _enabled and (not isinstance(remote, list) or len(remote) < len(_enabled)):
-            kvstore.save(_KV, sorted(_enabled))
+
     _loaded = True
 
 
 def _save() -> None:
+    # 1. MongoDB (primary)
+    if db.ready():
+        try:
+            db.save_greetings(sorted(_enabled))
+        except Exception:
+            pass
+
+    # 2. Local JSON backup
     tmp = f"{GREETINGS_FILE}.tmp"
     try:
         with open(tmp, "w") as f:
@@ -50,7 +64,6 @@ def _save() -> None:
             os.unlink(tmp)
         except OSError:
             pass
-    kvstore.save(_KV, sorted(_enabled))
 
 
 def is_enabled(chat_id: int) -> bool:
