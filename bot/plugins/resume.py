@@ -28,10 +28,10 @@ async def resume_command(client, message):
         await music.resume(message.chat.id)
     except Exception as exc:
         await message.reply_text(
-            "❌ <b>Resume failed</b>\n"
+            f"{e.WARNING} <b>Resume failed</b>\n"
             f"<code>{html.escape(f'{type(exc).__name__}: {exc}')}</code>",
             parse_mode=_HTML)
         return
 
     await message.reply_text(
-        f"▶️ {e.HEAD} <b>Resumed</b>", parse_mode=_HTML)
+        f"{e.MUSIC} <b>Resumed</b> {e.HEAD}", parse_mode=_HTML)
