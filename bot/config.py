@@ -37,6 +37,16 @@ STRING_SESSION = _require("STRING_SESSION")
 SPOTIFY_CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID", "")
 SPOTIFY_CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET", "")
 
+# ─── Owner/Sudo ID (comma-separated for multiple owners) ────────────────
+_owner_raw = os.getenv("OWNER_ID", "").strip()
+try:
+    OWNER_ID = int(_owner_raw) if _owner_raw.isdigit() else (
+        int(_owner_raw.split(",")[0].strip()) if _owner_raw else 0
+    )
+except (ValueError, TypeError):
+    _log.warning("config: OWNER_ID=%r is not a valid integer — ignoring", _owner_raw)
+    OWNER_ID = 0
+
 # Optional external media-downloader microservice. If MEDIA_API_URL is set,
 # Instagram and Pinterest downloads call it first (POST {url}/download with
 # X-API-Key) and only fall through to the in-process yt-dlp path if the API
