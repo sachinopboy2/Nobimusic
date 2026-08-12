@@ -27,12 +27,8 @@ class Track:
     requested_by: str
     is_video: bool = False
     duration: Optional[int] = None
-    thumb: Optional[str] = None  # artwork URL (for the composited player image)
-    # True for locally uploaded/downloaded MP4s that have no real title (the
-    # source only gives a UUID-ish filename). Their display name is generated
-    # dynamically from the queue via display_title() — "Mp4 Video[ N]" — so no
-    # filename/hash/file-id is ever shown. `title` still holds a clean base
-    # ("Mp4 Video") for any consumer that reads it directly.
+    thumb: Optional[str] = None
+    # True for locally uploaded/downloaded MP4s that have no real title
     generic_mp4: bool = False
 
 
@@ -52,16 +48,7 @@ def now_playing(chat_id: int) -> Optional[Track]:
 
 
 def display_title(chat_id: int, track: Track) -> str:
-    """The name to SHOW for `track` in this chat's player/queue UI.
-
-    Non-generic tracks (YouTube/Spotify/audio/resolved video — anything with a
-    real title) are returned unchanged. Generic local MP4s get a clean name
-    generated dynamically from the CURRENT queue order:
-      • a single MP4 anywhere in the timeline -> "Mp4 Video"
-      • multiple MP4s                          -> "Mp4 Video 1", "Mp4 Video 2", …
-    numbered by their position in [now-playing] + [upcoming]. Nothing is
-    renamed on disk and no filename/hash/file-id is ever exposed.
-    """
+    """The name to SHOW for `track` in this chat's player/queue UI."""
     if not getattr(track, "generic_mp4", False):
         return track.title
     with _lock:
@@ -76,7 +63,6 @@ def display_title(chat_id: int, track: Track) -> str:
     for i, t in enumerate(mp4s, start=1):
         if t is track:
             return f"Mp4 Video {i}"
-    # Not currently in the timeline (e.g. a just-skipped track) — clean, unnumbered.
     return "Mp4 Video"
 
 
@@ -93,8 +79,7 @@ def is_active(chat_id: int) -> bool:
 
 def active_sources() -> set[str]:
     """Every stream_url backing a currently-playing OR queued track, across all
-    chats. Used by /refresh to avoid deleting a local file still in use —
-    including queued OneGrab files, which are downloaded at enqueue time."""
+    chats. Used by /refresh to avoid deleting a local file still in use."""
     with _lock:
         srcs = {t.stream_url for t in _current.values() if t and t.stream_url}
         for dq in _upcoming.values():
@@ -117,9 +102,7 @@ def enqueue(chat_id: int, track: Track) -> int:
 
 
 def remove_at(chat_id: int, index: int) -> Optional[Track]:
-    """Remove the 1-indexed upcoming track (as shown on the queue card).
-    Returns it, or None if the index is out of range. Additive helper for the
-    'Change Song' button; does not touch the currently-playing track."""
+    """Remove the 1-indexed upcoming track (as shown on the queue card)."""
     with _lock:
         dq = _upcoming.get(chat_id)
         if not dq or index < 1 or index > len(dq):
@@ -132,15 +115,8 @@ def remove_at(chat_id: int, index: int) -> Optional[Track]:
 
 
 def pop_next(chat_id: int) -> Optional[Track]:
-    """Move the next upcoming track into `current` and return it.
-
-    The displaced current track is pushed onto the history deque so the
-    ⏮ control can step backwards. If there is nothing upcoming, clears
-    `current` for this chat and returns None — callers should interpret
-    that as "queue exhausted, leave the call."
-    """
+    """Move the next upcoming track into `current` and return it."""
     with _lock:
-        # Push the outgoing current to history before we overwrite it.
         prev = _current.get(chat_id)
         if prev is not None:
             hist = _history.setdefault(chat_id, deque(maxlen=_HISTORY_MAX))
@@ -157,15 +133,12 @@ def pop_next(chat_id: int) -> Optional[Track]:
 
 def pop_history(chat_id: int) -> Optional[Track]:
     """Return the most recently played track and push the current one
-    back to the front of the upcoming queue. Used by the ⏮ button.
-    """
+    back to the front of the upcoming queue. Used by the ⏮ button."""
     with _lock:
         hist = _history.get(chat_id)
         if not hist:
             return None
         prev = hist.pop()
-        # Re-queue the current track at the front, so when prev finishes
-        # the natural advance brings us back to where we were.
         cur = _current.get(chat_id)
         if cur is not None:
             up = _upcoming.setdefault(chat_id, deque())
