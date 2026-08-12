@@ -8,7 +8,7 @@ keep the body shorter than ~950 chars to leave room for that.
 """
 
 from pyrogram import Client, filters
-from pyrogram.enums import ParseMode
+from pyrogram.enums import ButtonStyle, ParseMode
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 # Banner image and display name come from config (driven by .env).
@@ -17,79 +17,78 @@ from bot.utils import emoji as e
 
 # Each page = (short title shown in the header, full HTML body).
 # Bodies use the centralized premium-emoji snippets from bot.utils.emoji
-# elsewhere about pyrofork's <emoji> vs <tg-emoji> tag.
 HELP_PAGES: list[tuple[str, str]] = [
     (
         "Music",
         f"{e.MUSIC} <b>Music</b>\n"
-        "• /play - Play a song\n"
-        "• /vplay (alias /cplay) - Play a video in voice chat\n"
-        "• /song - Search and download a song\n"
-        "• /video - Search and download a video\n"
-        "• /pause - Pause playback\n"
-        "• /resume - Resume playback\n"
-        "• /skip - Skip the current track\n"
-        "• /vskip - Skip the current video\n"
-        "• /stop (alias /end) - Stop playback\n"
-        "• /queue - Show the music queue\n"
-        "• /clearqueue (aliases /cq /clearall) - Clear the queue",
+        f"{e.MUSIC} /play - Play a song\n"
+        f"{e.HEAD} /vplay (alias /cplay) - Play a video in voice chat\n"
+        f"{e.MUSIC} /song - Search and download a song\n"
+        f"{e.HEAD} /video - Search and download a video\n"
+        f"{e.NOTE} /pause - Pause playback\n"
+        f"{e.MUSIC} /resume - Resume playback\n"
+        f"{e.BOLT} /skip - Skip the current track\n"
+        f"{e.BOLT} /vskip - Skip the current video\n"
+        f"{e.NO_ENTRY} /stop (alias /end) - Stop playback\n"
+        f"{e.INBOX} /queue - Show the music queue\n"
+        f"{e.BLOCK} /clearqueue (aliases /cq /clearall) - Clear the queue",
     ),
     (
         "Moderation",
         f"{e.SHIELD} <b>Moderation</b>\n"
-        "• /ban - Ban a user in this chat\n"
-        "• /unban - Unban a user in this chat\n"
-        "• /gban - (sudo) global ban across every chat the bot is in\n"
-        "• /removegban (aliases /ungban /delgban) - (sudo) lift a global ban\n"
-        "• /promote (alias /feature) - Promote a user to admin\n"
-        "• /demote (alias /unpromote) - Remove a user's admin rights\n"
-        "• /pin - Pin a replied message (add 'loud' to notify)\n"
-        "• /unpin - Unpin a replied (or the latest) message\n"
-        "• /unpinall confirm - Clear all pins\n"
-        "• /purge - Reply: delete up to here. /purge n: last n. "
+        f"{e.BLOCK} /ban - Ban a user in this chat\n"
+        f"{e.CHECK} /unban - Unban a user in this chat\n"
+        f"{e.BOMB1} /gban - (sudo) global ban across every chat the bot is in\n"
+        f"{e.CHECK} /removegban (aliases /ungban /delgban) - (sudo) lift a global ban\n"
+        f"{e.CROWN} /promote (alias /feature) - Promote a user to admin\n"
+        f"{e.THUMBS_DOWN} /demote (alias /unpromote) - Remove a user's admin rights\n"
+        f"{e.PIN} /pin - Pin a replied message (add 'loud' to notify)\n"
+        f"{e.NO_ENTRY} /unpin - Unpin a replied (or the latest) message\n"
+        f"{e.BLOCK} /unpinall confirm - Clear all pins\n"
+        f"{e.FIRE} /purge - Reply: delete up to here. /purge n: last n. "
         "/purge n min: last n minutes (max 200, &lt;48h only)\n"
-        "• /all - Tag everyone in batches. Reply to a message to tag alongside "
+        f"{e.PEOPLE} /all - Tag everyone in batches. Reply to a message to tag alongside "
         "it; add text (formatting &amp; premium emoji preserved). /cancel_all stops it",
     ),
     (
         "General",
         f"{e.WAVE} <b>Welcome &amp; Greetings</b>\n"
-        "• /greetings on|off - Toggle welcome cards on member join\n"
-        "• /departure on|off (alias /farewell) - Toggle farewell messages on member leave\n\n"
-        '🔗 <b>Auto-download</b>\n'
+        f"{e.WAVE} /greetings on|off - Toggle welcome cards on member join\n"
+        f"{e.GHOST} /departure on|off (alias /farewell) - Toggle farewell messages on member leave\n\n"
+        f"{e.INBOX} <b>Auto-download</b>\n"
         "Paste a YouTube or Pinterest link in any chat — I'll fetch the video and post it back.\n\n"
         f"{e.IDCARD} <b>Information</b>\n"
-        "• /id - Get user, group, or chat ID\n\n"
+        f"{e.IDCARD} /id - Get user, group, or chat ID\n\n"
         f"{e.GEAR} <b>General</b>\n"
-        "• /start - Show the welcome message\n"
-        "• /help - Show this help menu\n"
-        "• /ping - Check if the bot is online",
+        f"{e.STAR} /start - Show the welcome message\n"
+        f"{e.BOOK} /help - Show this help menu\n"
+        f"{e.BOLT} /ping - Check if the bot is online",
     ),
     (
         "Fun",
         f"{e.DICE} <b>Fun</b>\n"
-        "• /waifu - Match with a random group member as your waifu for 24h\n"
-        "• /toss - Toss a coin\n"
-        "• /kill (alias /murder) - Attempt to kill another user (50/50 outcome)\n"
-        "• /pat (alias /headpat) - Give someone a wholesome headpat\n"
-        "• /aura - Check someone's aura level (0-100)\n"
-        "• /celebrate &lt;occasion&gt; - bday/anniversary/promotion/win/welcome-back",
+        f"{e.HEART_EYES} /waifu - Match with a random group member as your waifu for 24h\n"
+        f"{e.DICE} /toss - Toss a coin\n"
+        f"{e.BOMB1} /kill (alias /murder) - Attempt to kill another user (50/50 outcome)\n"
+        f"{e.TEDDY} /pat (alias /headpat) - Give someone a wholesome headpat\n"
+        f"{e.SPARKLE} /aura - Check someone's aura level (0-100)\n"
+        f"{e.CHEERS} /celebrate &lt;occasion&gt; - bday/anniversary/promotion/win/welcome-back",
     ),
     (
         "Sudo",
         f"{e.CROWN} <b>Sudo</b>\n"
-        "• /stats - (sudo) bot stats and version info\n"
-        "• /refresh - (sudo) probe &amp; rotate YouTube cookie jars, report health\n"
-        "• /broadcast - (sudo) push a message to every chat\n"
-        "• /seeddm - (sudo) seed user IDs into the broadcast registry\n"
-        "• /blist - (sudo) ignore every message from a user\n"
-        "• /unblist (alias /removeblist) - (sudo) remove a user from the blacklist\n"
-        "• /addsudo - (owner) grant sudo to a user\n"
-        "• /delsudo (aliases /removesudo /rmsudo) - (owner) revoke sudo\n"
-        "• /sudolist (alias /sudoers) - (sudo) list current sudoers\n"
-        "• /setlog - (owner/sudo) make this chat the log channel for "
+        f"{e.SEARCH} /stats - (sudo) bot stats and version info\n"
+        f"{e.COMET} /refresh - (sudo) probe &amp; rotate YouTube cookie jars, report health\n"
+        f"{e.MEGA} /broadcast - (sudo) push a message to every chat\n"
+        f"{e.PEOPLE} /seeddm - (sudo) seed user IDs into the broadcast registry\n"
+        f"{e.BLOCK} /blist - (sudo) ignore every message from a user\n"
+        f"{e.CHECK} /unblist (alias /removeblist) - (sudo) remove a user from the blacklist\n"
+        f"{e.CROWN} /addsudo - (owner) grant sudo to a user\n"
+        f"{e.THUMBS_DOWN} /delsudo (aliases /removesudo /rmsudo) - (owner) revoke sudo\n"
+        f"{e.EYES} /sudolist (alias /sudoers) - (sudo) list current sudoers\n"
+        f"{e.PIN} /setlog - (owner/sudo) make this chat the log channel for "
         "start/add/download events\n"
-        "• /removelog (aliases /remlog /unsetlog) - (owner/sudo) disable logging",
+        f"{e.NO_ENTRY} /removelog (aliases /remlog /unsetlog) - (owner/sudo) disable logging",
     ),
 ]
 
@@ -106,21 +105,28 @@ def _build_caption(index: int) -> str:
 
 
 def _build_keyboard(index: int, home: bool = False) -> InlineKeyboardMarkup:
-    # `home` = this help view was opened from the start message, so the pages
-    # carry a :home suffix and a Back button that reverts to the start message.
-    # Standalone /help has no origin to go back to, so no Back button.
     prev_idx = (index - 1) % NUM_PAGES
     next_idx = (index + 1) % NUM_PAGES
     sfx = ":home" if home else ""
+
     rows = [
         [
-            InlineKeyboardButton("◀️ Prev", callback_data=f"help:{prev_idx}{sfx}"),
-            InlineKeyboardButton(f"{index + 1}/{NUM_PAGES}", callback_data="help:noop"),
-            InlineKeyboardButton("Next ▶️", callback_data=f"help:{next_idx}{sfx}"),
+            InlineKeyboardButton("Prev", callback_data=f"help:{prev_idx}{sfx}",
+                                 icon_custom_emoji_id=e.NOTE_ID,
+                                 style=ButtonStyle.PRIMARY),
+            InlineKeyboardButton(f"{index + 1}/{NUM_PAGES}", callback_data="help:noop",
+                                 style=ButtonStyle.DEFAULT),
+            InlineKeyboardButton("Next", callback_data=f"help:{next_idx}{sfx}",
+                                 icon_custom_emoji_id=e.BOLT_ID,
+                                 style=ButtonStyle.PRIMARY),
         ]
     ]
     if home:
-        rows.append([InlineKeyboardButton("🔙 Back", callback_data="start:home")])
+        rows.append([
+            InlineKeyboardButton("Back", callback_data="start:home",
+                                 icon_custom_emoji_id=e.CROWN_ID,
+                                 style=ButtonStyle.SUCCESS)
+        ])
     return InlineKeyboardMarkup(rows)
 
 
@@ -142,7 +148,7 @@ async def help_page_callback(client, callback_query):
     if token == "noop":
         await callback_query.answer()
         return
-    page_idx = int(token)  # regex guarantees digits here
+    page_idx = int(token)
     if not (0 <= page_idx < NUM_PAGES):
         await callback_query.answer("Out of range.", show_alert=False)
         return
@@ -153,8 +159,6 @@ async def help_page_callback(client, callback_query):
             reply_markup=_build_keyboard(page_idx, home=home),
         )
     except Exception as exc:
-        # Common: MessageNotModified when user double-taps the same page.
-        # Silently acknowledge — no need to alert.
         if "MESSAGE_NOT_MODIFIED" in str(exc).upper():
             await callback_query.answer()
             return
