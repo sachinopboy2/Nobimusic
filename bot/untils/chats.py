@@ -6,24 +6,22 @@ sends us a message. Used by /broadcast to know where to fan out and by
 /stats for reach. A chat_id > 0 is a served USER (DM); < 0 is a group.
 
 Persistence:
-- If REDIS_URL is set, the id set is mirrored to Redis (write-through on
-  every remember/forget, loaded on boot) so it survives Railway redeploys.
-  Any existing local chats.json is migrated in automatically on first load.
-- Otherwise it falls back to a JSON list at $CHATS_FILE (default
-  ./chats.json), written atomically via temp+rename.
+- MongoDB (primary, persistent across restarts/redeploys)
+- JSON fallback at $CHATS_FILE (default ./chats.json), written atomically
+  via temp+rename.
+- Existing local chats.json is migrated into MongoDB on first load.
 
 Reads (all_chats/count) are served from the in-memory set, so they never
-block on the store; only remember/forget writes touch Redis.
+block on the store; only remember/forget writes touch MongoDB.
 """
 
 import json
 import os
 from threading import Lock
 
-from bot.utils import kvstore
+from bot.utils import db
 
 CHATS_FILE = os.getenv("CHATS_FILE", "chats.json")
-_KV = "chats"
 
 _lock = Lock()
 _loaded = False
@@ -34,6 +32,7 @@ def _load() -> None:
     global _loaded
     if _loaded:
         return
+
     json_ids: set[int] = set()
     if os.path.exists(CHATS_FILE):
         try:
@@ -45,16 +44,33 @@ def _load() -> None:
             pass
     _known.update(json_ids)
 
-    if kvstore.enabled():
-        remote = kvstore.load(_KV)
-        if isinstance(remote, list):
-            _known.update(int(x) for x in remote)  # Redis authoritative
-        if _known and (not isinstance(remote, list) or len(remote) < len(_known)):
-            kvstore.save(_KV, sorted(_known))  # migrate local ids into Redis
+    # 1. MongoDB (primary — persistent)
+    if db.ready():
+        if not _loaded:
+            try:
+                remote = db.load_chats()
+                if isinstance(remote, list):
+                    _known.update(int(x) for x in remote)  # Mongo authoritative
+                if _known and (not isinstance(remote, list) or len(remote) < len(_known)):
+                    db.save_chats(sorted(_known))  # migrate local ids into Mongo
+                _loaded = True
+            except Exception:
+                pass
+        if _loaded:
+            return
+
     _loaded = True
 
 
 def _save() -> None:
+    # 1. MongoDB (primary)
+    if db.ready():
+        try:
+            db.save_chats(sorted(_known))
+        except Exception:
+            pass
+
+    # 2. Local JSON backup (original behaviour — untouched)
     tmp = CHATS_FILE + ".tmp"
     try:
         with open(tmp, "w") as f:
@@ -62,7 +78,6 @@ def _save() -> None:
         os.replace(tmp, CHATS_FILE)
     except OSError:
         pass
-    kvstore.save(_KV, sorted(_known))
 
 
 def remember(chat_id: int) -> bool:
